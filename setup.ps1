@@ -61,7 +61,8 @@ if ($candidates.Count -eq 0) {
     Write-Host "请在以下任一位置创建配置文件后重试：" -ForegroundColor Yellow
     Write-Host "  - 规范源: " $canonicalSource
     Write-Host "  - 四个工具配置目录之一 (.codex / .config\opencode / .gemini\config / .claude)" -ForegroundColor Yellow
-    pause
+    Write-Host "按任意键退出..." -ForegroundColor Gray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
 }
 
@@ -80,7 +81,8 @@ if ($candidates.Count -eq 1) {
     }
 
     if ($allSame) {
-        $selected = $candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        # $candidates 是字符串列表，需经 Get-Item 获取 LastWriteTime 属性后再排序
+        $selected = $candidates | Get-Item | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
         Write-Host "检测到 " $candidates.Count " 个内容相同的配置文件，已选择最近修改的：" $selected -ForegroundColor Cyan
     } else {
         Write-Host "检测到多个不同的配置文件，请选择使用哪一个：" -ForegroundColor Yellow
@@ -93,13 +95,15 @@ if ($candidates.Count -eq 1) {
         $idx = 0
         if (-not [int]::TryParse($choice, [ref]$idx)) {
             Write-Host "无效选择" -ForegroundColor Red
-            pause
+            Write-Host "按任意键退出..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
             exit 1
         }
         $idx--
         if ($idx -lt 0 -or $idx -ge $candidates.Count) {
             Write-Host "无效选择" -ForegroundColor Red
-            pause
+            Write-Host "按任意键退出..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
             exit 1
         }
         $selected = $candidates[$idx]
@@ -164,7 +168,8 @@ foreach ($t in $targets) {
     } catch {
         Write-Error ("创建软链接失败: " + $target)
         Write-Error "请确保以管理员身份运行此脚本"
-        pause
+        Write-Host "按任意键退出..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
     }
 }
