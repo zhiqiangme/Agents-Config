@@ -18,8 +18,6 @@ if (-not $isAdmin) {
     exit 0
 }
 
-$source = "$PSScriptRoot\AGENTS.md"
-
 # 同步目标：Tool=工具名称，ConfigDir=用于判断工具是否已安装的目录，TargetFile=软链接目标路径
 $targets = @(
     @{ Tool = "Codex";    ConfigDir = "$env:USERPROFILE\.codex";            TargetFile = "$env:USERPROFILE\.codex\AGENTS.md" },
@@ -28,53 +26,137 @@ $targets = @(
     @{ Tool = "Claude";   ConfigDir = "$env:USERPROFILE\.claude";           TargetFile = "$env:USERPROFILE\.claude\CLAUDE.md" }
 )
 
-Write-Host "正在设置 AI 代理配置软链接..." -ForegroundColor Cyan
+# 规范源：唯一真实的配置文件
+$canonicalSource = Join-Path $env:USERPROFILE ".agents\AGENTS.md"
 
-# 检查源文件是否存在
-if (-not (Test-Path $source)) {
-    Write-Error "源文件不存在: $source"
+Write-Host "正在扫描候选配置文件..." -ForegroundColor Cyan
+
+# 收集所有非空候选：规范源 + 各工具目录的 AGENTS.md / CLAUDE.md
+$candidates = New-Object System.Collections.Generic.List[string]
+
+if (Test-Path $canonicalSource) {
+    if ((Get-Item $canonicalSource).Length -gt 0) {
+        $candidates.Add($canonicalSource)
+    }
+}
+
+foreach ($t in $targets) {
+    $dir = Split-Path $t.TargetFile -Parent
+    foreach ($name in @('AGENTS.md', 'CLAUDE.md')) {
+        $p = Join-Path $dir $name
+        if ((Test-Path $p) -and ((Get-Item $p).Length -gt 0) -and (-not $candidates.Contains($p))) {
+            $candidates.Add($p)
+        }
+    }
+}
+
+if ($candidates.Count -eq 0) {
+    Write-Host "未找到任何 AGENTS.md 或 CLAUDE.md 文件" -ForegroundColor Red
+    Write-Host "请在以下任一位置创建配置文件后重试：" -ForegroundColor Yellow
+    Write-Host "  - 规范源: " $canonicalSource
+    Write-Host "  - 四个工具配置目录之一 (.codex / .config\opencode / .gemini\config / .claude)" -ForegroundColor Yellow
     pause
     exit 1
 }
 
+# 决定使用哪个候选作为规范源
+$selected = $null
+if ($candidates.Count -eq 1) {
+    $selected = $candidates[0]
+} else {
+    $firstHash = (Get-FileHash $candidates[0] -Algorithm SHA256).Hash
+    $allSame = $true
+    for ($i = 1; $i -lt $candidates.Count; $i++) {
+        if ((Get-FileHash $candidates[$i] -Algorithm SHA256).Hash -ne $firstHash) {
+            $allSame = $false
+            break
+        }
+    }
+
+    if ($allSame) {
+        $selected = $candidates | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        Write-Host "检测到 " $candidates.Count " 个内容相同的配置文件，已选择最近修改的：" $selected -ForegroundColor Cyan
+    } else {
+        Write-Host "检测到多个不同的配置文件，请选择使用哪一个：" -ForegroundColor Yellow
+        for ($i = 0; $i -lt $candidates.Count; $i++) {
+            $info = Get-Item $candidates[$i]
+            Write-Host "  [" ($i+1) "] " $candidates[$i] "  (大小: " $info.Length " 字节, 修改时间: " ($info.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')) ")"
+        }
+        Write-Host "请输入编号 (1-" $candidates.Count "): " -ForegroundColor Yellow -NoNewline
+        $choice = Read-Host
+        $idx = 0
+        if (-not [int]::TryParse($choice, [ref]$idx)) {
+            Write-Host "无效选择" -ForegroundColor Red
+            pause
+            exit 1
+        }
+        $idx--
+        if ($idx -lt 0 -or $idx -ge $candidates.Count) {
+            Write-Host "无效选择" -ForegroundColor Red
+            pause
+            exit 1
+        }
+        $selected = $candidates[$idx]
+    }
+}
+
+# 将选中的文件移动（唯一）或复制（多个）到规范源
+if ($selected -ne $canonicalSource) {
+    $canonicalDir = Split-Path $canonicalSource -Parent
+    if (-not (Test-Path $canonicalDir)) {
+        Write-Host "创建目录: " $canonicalDir -ForegroundColor Yellow
+        New-Item -ItemType Directory -Path $canonicalDir -Force | Out-Null
+    }
+
+    if ($candidates.Count -eq 1) {
+        Move-Item $selected $canonicalSource -Force
+        Write-Host "已移动: " $selected " -> " $canonicalSource -ForegroundColor Green
+    } else {
+        Copy-Item $selected $canonicalSource -Force
+        Write-Host "已复制: " $selected " -> " $canonicalSource -ForegroundColor Green
+    }
+}
+
+# 删除工具目录中原有的 AGENTS.md / CLAUDE.md，为创建新软链接做准备
+foreach ($t in $targets) {
+    $dir = Split-Path $t.TargetFile -Parent
+    foreach ($name in @('AGENTS.md', 'CLAUDE.md')) {
+        $p = Join-Path $dir $name
+        if (Test-Path $p) {
+            $it = Get-Item $p
+            if ($it.LinkType -eq 'SymbolicLink') {
+                Write-Host "删除现有软链接: " $p -ForegroundColor Yellow
+            } else {
+                Write-Host "删除现有文件: " $p -ForegroundColor Yellow
+            }
+            Remove-Item $p -Force
+        }
+    }
+}
+
+# 为每个已安装的工具创建软链接
 $created = 0
 $skipped = 0
-
 foreach ($t in $targets) {
-    # 通过工具配置目录是否存在判断是否已安装，未安装则跳过（避免创建空目录和无效软链接）
     if (-not (Test-Path $t.ConfigDir)) {
-        Write-Host "[跳过] $($t.Tool)：未检测到配置目录 $($t.ConfigDir)" -ForegroundColor DarkGray
+        Write-Host "[跳过] " $t.Tool ": 未检测到配置目录 " $t.ConfigDir -ForegroundColor DarkGray
         $skipped++
         continue
     }
 
     $target = $t.TargetFile
     $targetDir = Split-Path $target -Parent
-
-    # 确保目标文件所在目录存在
     if (-not (Test-Path $targetDir)) {
-        Write-Host "创建目录: $targetDir" -ForegroundColor Yellow
+        Write-Host "创建目录: " $targetDir -ForegroundColor Yellow
         New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
     }
 
-    # 如果目标已存在，删除它
-    if (Test-Path $target) {
-        $item = Get-Item $target
-        if ($item.LinkType -eq "SymbolicLink") {
-            Write-Host "删除现有软链接: $target" -ForegroundColor Yellow
-        } else {
-            Write-Host "删除现有文件: $target" -ForegroundColor Yellow
-        }
-        Remove-Item $target -Force
-    }
-
-    # 创建软链接
     try {
-        New-Item -ItemType SymbolicLink -Path $target -Target $source | Out-Null
-        Write-Host "[完成] 已创建软链接 [$($t.Tool)]: $target" -ForegroundColor Green
+        New-Item -ItemType SymbolicLink -Path $target -Target $canonicalSource | Out-Null
+        Write-Host "[完成] 已创建软链接 [" $t.Tool "]: " $target -ForegroundColor Green
         $created++
     } catch {
-        Write-Error "创建软链接失败: $target"
+        Write-Error ("创建软链接失败: " + $target)
         Write-Error "请确保以管理员身份运行此脚本"
         pause
         exit 1
@@ -82,7 +164,7 @@ foreach ($t in $targets) {
 }
 
 Write-Host ""
-Write-Host "完成！新建 $created 个软链接，跳过 $skipped 个未安装的工具。" -ForegroundColor Cyan
-Write-Host "源文件: $source" -ForegroundColor Cyan
+Write-Host "完成！新建 " $created " 个软链接，跳过 " $skipped " 个未安装的工具。" -ForegroundColor Cyan
+Write-Host "规范源: " $canonicalSource -ForegroundColor Cyan
 Write-Host "按任意键退出..." -ForegroundColor Gray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")

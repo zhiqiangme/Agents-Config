@@ -22,14 +22,15 @@
 ## 目录结构
 
 ```
-ai-agents-config/
-├── AGENTS.md      # 主配置文件（原件）
+agents-config/
 ├── setup.ps1      # PowerShell 设置脚本
 ├── setup.cmd      # Windows 批处理包装脚本
 ├── README.md      # 中文说明
 ├── README_EN.md   # 英文说明
 └── LICENSE        # MIT 许可证
 ```
+
+注意：本仓库**不**包含 `AGENTS.md`。配置文件应放在规范源位置 `%USERPROFILE%\.agents\AGENTS.md`（即 `C:\Users\<你的用户名>\.agents\AGENTS.md`）。
 
 ## 同步目标
 
@@ -42,16 +43,38 @@ ai-agents-config/
 | Gemini | `%USERPROFILE%\.gemini\config\AGENTS.md` |
 | Claude | `%USERPROFILE%\.claude\CLAUDE.md` |
 
+所有软链接均指向规范源 `%USERPROFILE%\.agents\AGENTS.md`。
+
 ## 使用方法
 
-1. 将 `AGENTS.md` 放在本目录
-2. 运行 `setup.cmd`（脚本会自动请求管理员权限，UAC 弹窗点「是」即可）
-3. 脚本会自动创建软链接，所有工具共享同一份配置
+1. 在 `%USERPROFILE%\.agents\AGENTS.md` 创建配置文件（如果已存在可跳过）
+2. 如果某个工具的目录（如 `\.codex`）中已有 `AGENTS.md` 或 `CLAUDE.md`，脚本会自动识别并复用
+3. 运行 `setup.cmd`（脚本会自动请求管理员权限，UAC 弹窗点「是」即可）
+
+## 智能收集逻辑
+
+脚本会扫描以下位置作为候选配置文件：
+
+- 规范源：`%USERPROFILE%\.agents\AGENTS.md`
+- 四个工具目录下的 `AGENTS.md` 或 `CLAUDE.md`（`CLAUDE.md` 会被复制时自动重命名为 `AGENTS.md`）
+
+然后按以下规则处理：
+
+| 情况 | 处理方式 |
+|------|----------|
+| 没有候选文件 | 提示用户在任一位置创建后重试 |
+| 只有一个非空候选 | **移动**到规范源 |
+| 多个候选且内容一致 | 选择最近修改的，**复制**到规范源 |
+| 多个候选且内容不一致 | 列出所有候选让用户选择，选中的**复制**到规范源 |
+
+之后清理四个工具目录中原有的 `AGENTS.md` / `CLAUDE.md`，再创建指向规范源的软链接。
 
 ## 注意事项
 
+- 规范源路径为 `%USERPROFILE%\.agents\AGENTS.md`，全大写
 - 无需手动以管理员身份运行，脚本会通过 UAC 自动提权
 - 支持 Windows 10/11
+- 脚本会检测工具是否已安装（通过配置目录是否存在判断），未装的工具自动跳过
 - 如需新增工具，编辑 `setup.ps1` 中的 `$targets` 数组即可
 
 ## 许可证
