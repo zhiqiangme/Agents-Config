@@ -9,6 +9,12 @@
 
 统一管理 Codex、OpenCode、Gemini、Claude 的代理配置文件。
 
+## 痛点
+
+想必你也遇到过这样的困扰：Codex 中放一份 `AGENTS.md`，OpenCode 中又要放一份，Claude Code 还得专门放一个 `CLAUDE.md`，而它们承载的内容本应完全相同。每次规范更新都要逐个文件手动复制、反复同步，繁琐又容易遗漏。
+
+本项目的目的正是消除这种重复：只维护一份 `AGENTS.md`，通过软链接分发到各个 AI 工具的配置目录，所有工具都自动识别同一份内容——编辑一处，全部生效。
+
 ## 原理
 
 通过 Windows 软链接（Symbolic Link）将一份 `AGENTS.md` 同步到多个 AI 工具的配置目录，修改一处，全部生效。

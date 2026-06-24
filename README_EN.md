@@ -9,6 +9,12 @@
 
 Unified management of agent configuration files for Codex, OpenCode, Gemini, and Claude.
 
+## The Problem
+
+If you've ever juggled agent configurations across AI tools, you know the pain: Codex wants an `AGENTS.md`, OpenCode wants one too, and Claude Code requires a separate `CLAUDE.md`. They should all contain the same content, but every update means manually copying the file to each location—tedious and error-prone.
+
+This project eliminates that duplication. Maintain a single `AGENTS.md` and distribute it to every tool's config directory via symbolic links. Edit once, and every tool picks up the latest version automatically.
+
 ## How It Works
 
 Uses Windows Symbolic Links to sync a single `AGENTS.md` across multiple AI tool configuration directories. Edit once, apply everywhere.
