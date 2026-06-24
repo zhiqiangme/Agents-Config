@@ -39,12 +39,12 @@ Running the script will automatically create symbolic links to:
 ## Usage
 
 1. Place `AGENTS.md` in this directory
-2. Run `setup.cmd` **as Administrator**
+2. Run `setup.cmd` (the script will automatically request administrator privileges via UAC; click "Yes" on the prompt)
 3. The script creates symbolic links so all tools share the same configuration
 
 ## Notes
 
-- Administrator privileges required to create symbolic links
+- No need to run as administrator manually; the script auto-elevates via UAC
 - Supports Windows 10/11
 - To add a new tool, edit the `$targets` array in `setup.ps1`
 
