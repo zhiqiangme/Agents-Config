@@ -1,3 +1,10 @@
+<div align="right">
+
+[![中文](https://img.shields.io/badge/中文-切换-FF6B6B?style=for-the-badge)](README.md)
+[![English](https://img.shields.io/badge/English-Current-1E90FF?style=for-the-badge)](README_EN.md)
+
+</div>
+
 # AI Agent Configuration Manager
 
 Unified management of agent configuration files for Codex, OpenCode, Gemini, and Claude.

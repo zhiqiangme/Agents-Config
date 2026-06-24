@@ -1,3 +1,10 @@
+<div align="right">
+
+[![中文](https://img.shields.io/badge/中文-当前阅读-FF6B6B?style=for-the-badge)](README.md)
+[![English](https://img.shields.io/badge/English-Switch-1E90FF?style=for-the-badge)](README_EN.md)
+
+</div>
+
 # AI 代理配置管理
 
 统一管理 Codex、OpenCode、Gemini、Claude 的代理配置文件。
