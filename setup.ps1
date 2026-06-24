@@ -35,7 +35,9 @@ Write-Host "正在扫描候选配置文件..." -ForegroundColor Cyan
 $candidates = New-Object System.Collections.Generic.List[string]
 
 if (Test-Path $canonicalSource) {
-    if ((Get-Item $canonicalSource).Length -gt 0) {
+    $csContent = $null
+    try { $csContent = [System.IO.File]::ReadAllText($canonicalSource) } catch { }
+    if ($csContent -and $csContent.Length -gt 0) {
         $candidates.Add($canonicalSource)
     }
 }
@@ -44,8 +46,12 @@ foreach ($t in $targets) {
     $dir = Split-Path $t.TargetFile -Parent
     foreach ($name in @('AGENTS.md', 'CLAUDE.md')) {
         $p = Join-Path $dir $name
-        if ((Test-Path $p) -and ((Get-Item $p).Length -gt 0) -and (-not $candidates.Contains($p))) {
-            $candidates.Add($p)
+        if ((Test-Path $p) -and (-not $candidates.Contains($p))) {
+            $pContent = $null
+            try { $pContent = [System.IO.File]::ReadAllText($p) } catch { }
+            if ($pContent -and $pContent.Length -gt 0) {
+                $candidates.Add($p)
+            }
         }
     }
 }
