@@ -1,6 +1,9 @@
 ﻿# 设置 AI 代理配置软链接
 # 将 AGENTS.md 同步到 Codex、OpenCode、Gemini、Claude
 
+# 引入 Visual Basic 文件系统 API，用于将旧文件送入回收站而非直接删除
+Add-Type -AssemblyName Microsoft.VisualBasic
+
 # 检查是否以管理员身份运行，非管理员则自动触发 UAC 提权后退出当前进程
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
@@ -128,6 +131,7 @@ if ($selected -ne $canonicalSource) {
 }
 
 # 删除工具目录中原有的 AGENTS.md / CLAUDE.md，为创建新软链接做准备
+# 使用回收站而非永久删除，避免误操作丢失用户配置
 foreach ($t in $targets) {
     $dir = Split-Path $t.TargetFile -Parent
     foreach ($name in @('AGENTS.md', 'CLAUDE.md')) {
@@ -135,11 +139,14 @@ foreach ($t in $targets) {
         if (Test-Path $p) {
             $it = Get-Item $p
             if ($it.LinkType -eq 'SymbolicLink') {
-                Write-Host "删除现有软链接: " $p -ForegroundColor Yellow
+                Write-Host "移除现有软链接: " $p -ForegroundColor Yellow
+                # 软链接直接删除即可，不会影响规范源
+                Remove-Item $p -Force
             } else {
-                Write-Host "删除现有文件: " $p -ForegroundColor Yellow
+                Write-Host "移入回收站: " $p -ForegroundColor Yellow
+                # 普通文件送入回收站，保留恢复可能性
+                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin')
             }
-            Remove-Item $p -Force
         }
     }
 }
