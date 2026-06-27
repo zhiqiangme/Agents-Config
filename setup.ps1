@@ -1,4 +1,4 @@
-﻿# 设置 AI 代理配置软链接
+# 设置 AI 代理配置软链接
 # 将 AGENTS.md 同步到 Codex、OpenCode、Gemini、Claude
 
 # 引入 Visual Basic 文件系统 API，用于将旧文件送入回收站而非直接删除
@@ -178,6 +178,56 @@ foreach ($t in $targets) {
         Write-Host "按任意键退出..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
+    }
+}
+
+# Skills 目录同步：将规范源 .agents\skills 软链接到各工具的 skills 目录
+$skillsSource = Join-Path $env:USERPROFILE ".agents\skills"
+
+if (-not (Test-Path $skillsSource)) {
+    Write-Host "未检测到 Skills 源目录: " $skillsSource "，跳过 Skills 同步。" -ForegroundColor DarkGray
+} else {
+    Write-Host ""
+    Write-Host "正在同步 Skills 目录..." -ForegroundColor Cyan
+
+    # 各工具的 skills 目标目录
+    $skillTargets = @(
+        @{ Tool = "WorkBuddy"; TargetDir = "$env:USERPROFILE\.workbuddy\skills" },
+        @{ Tool = "Trae-CN";   TargetDir = "$env:USERPROFILE\.trae-cn\skills" },
+        @{ Tool = "Claude";    TargetDir = "$env:USERPROFILE\.claude\skills" }
+    )
+
+    foreach ($s in $skillTargets) {
+        # 确保父目录存在
+        $parentDir = Split-Path $s.TargetDir -Parent
+        if (-not (Test-Path $parentDir)) {
+            Write-Host "创建目录: " $parentDir -ForegroundColor Yellow
+            New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+        }
+
+        # 目标已存在时清理：软链接直接删除，普通目录送入回收站
+        if (Test-Path $s.TargetDir) {
+            $it = Get-Item $s.TargetDir -Force
+            if ($it.LinkType -eq 'SymbolicLink') {
+                Write-Host "移除现有软链接: " $s.TargetDir -ForegroundColor Yellow
+                Remove-Item $s.TargetDir -Force
+            } else {
+                Write-Host "移入回收站: " $s.TargetDir -ForegroundColor Yellow
+                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($s.TargetDir, 'OnlyErrorDialogs', 'SendToRecycleBin')
+            }
+        }
+
+        # 创建目录软链接
+        try {
+            New-Item -ItemType SymbolicLink -Path $s.TargetDir -Target $skillsSource | Out-Null
+            Write-Host "[完成] 已创建软链接 [" $s.Tool "]: " $s.TargetDir -ForegroundColor Green
+        } catch {
+            Write-Error ("创建软链接失败: " + $s.TargetDir)
+            Write-Error "请确保以管理员身份运行此脚本"
+            Write-Host "按任意键退出..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            exit 1
+        }
     }
 }
 
