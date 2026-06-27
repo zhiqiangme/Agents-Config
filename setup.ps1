@@ -1,4 +1,4 @@
-# 设置 AI 代理配置软链接
+﻿# 设置 AI 代理配置软链接
 # 将 AGENTS.md 同步到 Codex、OpenCode、Gemini、Claude
 
 # 引入 Visual Basic 文件系统 API，用于将旧文件送入回收站而非直接删除
