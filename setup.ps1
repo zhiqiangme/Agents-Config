@@ -32,6 +32,10 @@ $targets = @(
     @{ Tool = "Claude";   ConfigDir = "$env:USERPROFILE\.claude";           TargetFile = "$env:USERPROFILE\.claude\CLAUDE.md" }
 )
 
+# Trae Work CN 规则文件：仅参与清理与软链接创建，不参与候选扫描
+# 路径下原有 rule-*.md 会被删除并替换为指向规范源的软链接
+$traeRuleDir = "$env:USERPROFILE\.trae-cn\user_rules"
+
 # 规范源：唯一真实的配置文件
 $canonicalSource = Join-Path $env:USERPROFILE ".agents\AGENTS.md"
 
@@ -208,6 +212,42 @@ foreach ($t in $targets) {
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
     }
+}
+
+# Trae Work CN 规则文件同步：删除 user_rules 目录下所有 rule-*.md，
+# 创建一个指向规范源的软链接（命名保持 rule- 前缀，由 Trae 自行管理时间戳）
+if (Test-Path $traeRuleDir) {
+    Write-Host ""
+    Write-Host "正在同步 Trae Work CN 规则文件..." -ForegroundColor Cyan
+
+    # 清理目录中所有 rule-*.md 文件（软链接直接删除，普通文件送入回收站）
+    Get-ChildItem -Path $traeRuleDir -Filter "rule-*.md" -File -Force | ForEach-Object {
+        $p = $_.FullName
+        if ($_.LinkType -eq 'SymbolicLink') {
+            Write-Host "移除现有软链接: " $p -ForegroundColor Yellow
+            Remove-Item $p -Force
+        } else {
+            Write-Host "移入回收站: " $p -ForegroundColor Yellow
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin')
+        }
+    }
+
+    # 创建软链接：用固定名称 rule-agents.md，避免与 Trae 自动生成的时间戳文件混淆
+    $traeRuleLink = Join-Path $traeRuleDir "rule-agents.md"
+    try {
+        New-Item -ItemType SymbolicLink -Path $traeRuleLink -Target $canonicalSource | Out-Null
+        Write-Host "[完成] 已创建软链接 [Trae-Work]: " $traeRuleLink -ForegroundColor Green
+        $created++
+    } catch {
+        Write-Error ("创建软链接失败: " + $traeRuleLink)
+        Write-Error "请确保以管理员身份运行此脚本"
+        Write-Host "按任意键退出..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit 1
+    }
+} else {
+    Write-Host "[跳过] Trae-Work: 未检测到配置目录 " $traeRuleDir -ForegroundColor DarkGray
+    $skipped++
 }
 
 # Skills 目录同步：将规范源 .agents\skills 软链接到各工具的 skills 目录
