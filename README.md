@@ -36,6 +36,8 @@ agents-config/
 
 运行脚本后，会自动创建软链接到以下位置：
 
+### AGENTS 配置文件
+
 | 工具 | 目标路径 |
 |------|----------|
 | Codex | `%USERPROFILE%\.codex\AGENTS.md` |
@@ -44,6 +46,18 @@ agents-config/
 | Claude | `%USERPROFILE%\.claude\CLAUDE.md` |
 
 所有软链接均指向规范源 `%USERPROFILE%\.agents\AGENTS.md`。
+
+### Skills 目录
+
+当 `%USERPROFILE%\.agents\skills` 存在时，脚本会同步将其软链接到以下位置：
+
+| 工具 | 目标路径 |
+|------|----------|
+| WorkBuddy | `%USERPROFILE%\.workbuddy\skills` |
+| Trae-CN | `%USERPROFILE%\.trae-cn\skills` |
+| Claude | `%USERPROFILE%\.claude\skills` |
+
+源目录不存在时自动跳过 Skills 同步，不影响主流程。
 
 ## 使用方法
 
@@ -72,7 +86,8 @@ agents-config/
 ## 注意事项
 
 - 规范源路径为 `%USERPROFILE%\.agents\AGENTS.md`，全大写
-- 无需手动以管理员身份运行，脚本会通过 UAC 自动提权
+- 脚本优先使用 PowerShell 7（`pwsh`），未安装时自动回退到系统自带的 Windows PowerShell 5.x
+- 无需手动以管理员身份运行，脚本会通过 UAC 自动提权（提权后仍保持使用相同版本的解释器）
 - 支持 Windows 10/11
 - 脚本会检测工具是否已安装（通过配置目录是否存在判断），未装的工具自动跳过
 - 如需新增工具，编辑 `setup.ps1` 中的 `$targets` 数组即可

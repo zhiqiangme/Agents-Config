@@ -31,17 +31,6 @@ ai-agents-config/
 └── LICENSE        # MIT License
 ```
 
-## Sync Targets
-
-Running the script will automatically create symbolic links to:
-
-| Tool | Target Path |
-|------|-------------|
-| Codex | `%USERPROFILE%\.codex\AGENTS.md` |
-| OpenCode | `%USERPROFILE%\.config\opencode\AGENTS.md` |
-| Gemini | `%USERPROFILE%\.gemini\config\AGENTS.md` |
-| Claude | `%USERPROFILE%\.claude\CLAUDE.md` |
-
 ## Repository Layout
 
 ```
@@ -59,6 +48,8 @@ Note: this repository does **not** contain `AGENTS.md`. The configuration file s
 
 After running the script, symbolic links are created at:
 
+### AGENTS configuration file
+
 | Tool | Target path |
 |------|-------------|
 | Codex | `%USERPROFILE%\.codex\AGENTS.md` |
@@ -67,6 +58,18 @@ After running the script, symbolic links are created at:
 | Claude | `%USERPROFILE%\.claude\CLAUDE.md` |
 
 All links point to the canonical source at `%USERPROFILE%\.agents\AGENTS.md`.
+
+### Skills directory
+
+When `%USERPROFILE%\.agents\skills` exists, the script also symlinks it to:
+
+| Tool | Target path |
+|------|-------------|
+| WorkBuddy | `%USERPROFILE%\.workbuddy\skills` |
+| Trae-CN | `%USERPROFILE%\.trae-cn\skills` |
+| Claude | `%USERPROFILE%\.claude\skills` |
+
+If the source directory does not exist, Skills sync is skipped without affecting the main flow.
 
 ## Usage
 
@@ -95,7 +98,8 @@ After that, any existing `AGENTS.md` / `CLAUDE.md` in the four tool directories 
 ## Notes
 
 - The canonical source path is `%USERPROFILE%\.agents\AGENTS.md` (uppercase)
-- No need to run as administrator manually; the script auto-elevates via UAC
+- The script prefers PowerShell 7 (`pwsh`) and falls back to the built-in Windows PowerShell 5.x if unavailable
+- No need to run as administrator manually; the script auto-elevates via UAC (the same interpreter version is preserved after elevation)
 - Supports Windows 10/11
 - The script detects whether each tool is installed (via the presence of its config directory) and skips tools that are not installed
 - To add a new tool, edit the `$targets` array in `setup.ps1`
