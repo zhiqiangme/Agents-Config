@@ -9,9 +9,12 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 
 if (-not $isAdmin) {
     Write-Host "当前未以管理员身份运行，正在请求提升权限..." -ForegroundColor Yellow
+    # 获取当前 PowerShell 解释器路径，确保提权后仍使用相同版本（PS7 或 PS5）
+    $psExe = (Get-Process -Id $PID).Path
+    if (-not $psExe) { $psExe = "powershell.exe" }
     $arg = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" $args"
     try {
-        Start-Process -FilePath "powershell.exe" -ArgumentList $arg -Verb RunAs -WorkingDirectory $PSScriptRoot
+        Start-Process -FilePath $psExe -ArgumentList $arg -Verb RunAs -WorkingDirectory $PSScriptRoot
     } catch {
         Write-Host "无法自动获取管理员权限，请右键此脚本选择「以管理员身份运行」" -ForegroundColor Red
         Write-Host "按任意键退出..." -ForegroundColor Gray
