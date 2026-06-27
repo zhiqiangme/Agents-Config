@@ -118,18 +118,35 @@ if ($candidates.Count -eq 1) {
 
 # 将选中的文件移动（唯一）或复制（多个）到规范源
 if ($selected -ne $canonicalSource) {
-    $canonicalDir = Split-Path $canonicalSource -Parent
-    if (-not (Test-Path $canonicalDir)) {
-        Write-Host "创建目录: " $canonicalDir -ForegroundColor Yellow
-        New-Item -ItemType Directory -Path $canonicalDir -Force | Out-Null
+    # 检查选中文件与规范源是否指向同一实际文件
+    # 避免软链接导致 Copy-Item/Move-Item 报错"Cannot overwrite with itself"
+    $skipSync = $false
+    if (Test-Path $canonicalSource) {
+        try {
+            $selectedReal = (Resolve-Path $selected).ProviderPath
+            $canonicalReal = (Resolve-Path $canonicalSource).ProviderPath
+            if ($selectedReal -eq $canonicalReal) {
+                $skipSync = $true
+            }
+        } catch { }
     }
 
-    if ($candidates.Count -eq 1) {
-        Move-Item $selected $canonicalSource -Force
-        Write-Host "已移动: " $selected " -> " $canonicalSource -ForegroundColor Green
+    if (-not $skipSync) {
+        $canonicalDir = Split-Path $canonicalSource -Parent
+        if (-not (Test-Path $canonicalDir)) {
+            Write-Host "创建目录: " $canonicalDir -ForegroundColor Yellow
+            New-Item -ItemType Directory -Path $canonicalDir -Force | Out-Null
+        }
+
+        if ($candidates.Count -eq 1) {
+            Move-Item $selected $canonicalSource -Force
+            Write-Host "已移动: " $selected " -> " $canonicalSource -ForegroundColor Green
+        } else {
+            Copy-Item $selected $canonicalSource -Force
+            Write-Host "已复制: " $selected " -> " $canonicalSource -ForegroundColor Green
+        }
     } else {
-        Copy-Item $selected $canonicalSource -Force
-        Write-Host "已复制: " $selected " -> " $canonicalSource -ForegroundColor Green
+        Write-Host "规范源与选中文件指向同一实际文件，无需同步: " $selected -ForegroundColor DarkGray
     }
 }
 
