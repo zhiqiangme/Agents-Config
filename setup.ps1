@@ -118,15 +118,24 @@ if ($candidates.Count -eq 1) {
 
 # 将选中的文件移动（唯一）或复制（多个）到规范源
 if ($selected -ne $canonicalSource) {
-    # 检查选中文件与规范源是否指向同一实际文件
+    # 检查选中文件是否为指向规范源的软链接
     # 避免软链接导致 Copy-Item/Move-Item 报错"Cannot overwrite with itself"
+    # Resolve-Path 不会解析软链接到最终目标，必须用 Get-Item 的 Target 属性
     $skipSync = $false
     if (Test-Path $canonicalSource) {
         try {
-            $selectedReal = (Resolve-Path $selected).ProviderPath
-            $canonicalReal = (Resolve-Path $canonicalSource).ProviderPath
-            if ($selectedReal -eq $canonicalReal) {
-                $skipSync = $true
+            $selItem = Get-Item $selected -Force
+            if ($selItem.LinkType -eq 'SymbolicLink' -and $selItem.Target) {
+                # 软链接的 Target 可能是相对或绝对路径，统一规范化为绝对路径
+                $targetResolved = $selItem.Target
+                if (-not [System.IO.Path]::IsPathRooted($targetResolved)) {
+                    $targetResolved = Join-Path (Split-Path $selected -Parent) $targetResolved
+                }
+                $targetResolved = (Resolve-Path $targetResolved -ErrorAction Stop).ProviderPath
+                $canonicalResolved = (Resolve-Path $canonicalSource -ErrorAction Stop).ProviderPath
+                if ($targetResolved -eq $canonicalResolved) {
+                    $skipSync = $true
+                }
             }
         } catch { }
     }
