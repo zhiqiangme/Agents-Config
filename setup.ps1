@@ -250,6 +250,40 @@ if (Test-Path $traeRuleDir) {
     $skipped++
 }
 
+# Qoder Work CN 规则文件同步：将 awareness\main\AGENTS.md 替换为指向规范源的软链接
+$qoderRuleDir = "$env:USERPROFILE\.qoderworkcn\awareness\main"
+if (Test-Path $qoderRuleDir) {
+    Write-Host ""
+    Write-Host "正在同步 Qoder Work CN 规则文件..." -ForegroundColor Cyan
+
+    $qoderTarget = Join-Path $qoderRuleDir "AGENTS.md"
+    if (Test-Path $qoderTarget) {
+        $it = Get-Item $qoderTarget -Force
+        if ($it.LinkType -eq 'SymbolicLink') {
+            Write-Host "移除现有软链接: " $qoderTarget -ForegroundColor Yellow
+            Remove-Item $qoderTarget -Force
+        } else {
+            Write-Host "移入回收站: " $qoderTarget -ForegroundColor Yellow
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($qoderTarget, 'OnlyErrorDialogs', 'SendToRecycleBin')
+        }
+    }
+
+    try {
+        New-Item -ItemType SymbolicLink -Path $qoderTarget -Target $canonicalSource | Out-Null
+        Write-Host "[完成] 已创建软链接 [QoderWork]: " $qoderTarget -ForegroundColor Green
+        $created++
+    } catch {
+        Write-Error ("创建软链接失败: " + $qoderTarget)
+        Write-Error "请确保以管理员身份运行此脚本"
+        Write-Host "按任意键退出..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        exit 1
+    }
+} else {
+    Write-Host "[跳过] QoderWork: 未检测到配置目录 " $qoderRuleDir -ForegroundColor DarkGray
+    $skipped++
+}
+
 # Skills 目录同步：将规范源 .agents\skills 软链接到各工具的 skills 目录
 $skillsSource = Join-Path $env:USERPROFILE ".agents\skills"
 
@@ -263,7 +297,8 @@ if (-not (Test-Path $skillsSource)) {
     $skillTargets = @(
         @{ Tool = "WorkBuddy"; TargetDir = "$env:USERPROFILE\.workbuddy\skills" },
         @{ Tool = "Trae-CN";   TargetDir = "$env:USERPROFILE\.trae-cn\skills" },
-        @{ Tool = "Claude";    TargetDir = "$env:USERPROFILE\.claude\skills" }
+        @{ Tool = "Claude";    TargetDir = "$env:USERPROFILE\.claude\skills" },
+        @{ Tool = "QoderWork"; TargetDir = "$env:USERPROFILE\.qoderworkcn\skills" }
     )
 
     foreach ($s in $skillTargets) {
