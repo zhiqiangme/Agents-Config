@@ -301,6 +301,20 @@ if (-not (Test-Path $skillsSource)) {
         @{ Tool = "QoderWork"; TargetDir = "$env:USERPROFILE\.qoderworkcn\skills" }
     )
 
+    # Marvis 用户 ID 每台电脑不同，动态扫描 User 目录，排除 default_user
+    $marvisUserDir = Join-Path $env:APPDATA "Tencent\Marvis\User"
+    if (Test-Path $marvisUserDir) {
+        $marvisUserId = Get-ChildItem -Path $marvisUserDir -Directory |
+            Where-Object { $_.Name -ne "default_user" } |
+            Select-Object -First 1
+        if ($marvisUserId) {
+            $marvisCustomDir = Join-Path $marvisUserId.FullName "skills\custom"
+            $skillTargets += @{ Tool = "Marvis"; TargetDir = $marvisCustomDir }
+        } else {
+            Write-Host "未找到 Marvis 用户目录，跳过 Marvis Skills 同步。" -ForegroundColor DarkGray
+        }
+    }
+
     foreach ($s in $skillTargets) {
         # 确保父目录存在
         $parentDir = Split-Path $s.TargetDir -Parent
