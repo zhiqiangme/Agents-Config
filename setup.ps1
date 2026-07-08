@@ -5,18 +5,23 @@
 Add-Type -AssemblyName Microsoft.VisualBasic
 
 # 检查是否以管理员身份运行，非管理员则自动触发 UAC 提权后退出当前进程
+# 若已开启 Windows 开发者模式，则无需管理员权限也能创建软链接
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$devMode = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -Name "AllowDevelopmentWithoutDevLicense" -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense
 
-if (-not $isAdmin) {
-    Write-Host "当前未以管理员身份运行，正在请求提升权限..." -ForegroundColor Yellow
+if (-not $isAdmin -and $devMode -ne 1) {
+    Write-Host "当前未以管理员身份运行且未开启开发者模式，正在请求提升权限..." -ForegroundColor Yellow
     # 获取当前 PowerShell 解释器路径，确保提权后仍使用相同版本（PS7 或 PS5）
     $psExe = (Get-Process -Id $PID).Path
     if (-not $psExe) { $psExe = "powershell.exe" }
-    $arg = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" $args"
+    # 用数组传递参数，避免含空格路径在单字符串下被错误解析
+    $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    if ($args.Count -gt 0) { $argList += $args }
     try {
-        Start-Process -FilePath $psExe -ArgumentList $arg -Verb RunAs -WorkingDirectory $PSScriptRoot
+        Start-Process -FilePath $psExe -ArgumentList $argList -Verb RunAs -WorkingDirectory $PSScriptRoot
     } catch {
         Write-Host "无法自动获取管理员权限，请右键此脚本选择「以管理员身份运行」" -ForegroundColor Red
+        Write-Host "或前往 Windows 设置 -> 隐私和安全性 -> 开发者选项，开启开发者模式" -ForegroundColor Yellow
         Write-Host "按任意键退出..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
@@ -197,12 +202,18 @@ foreach ($t in $targets) {
     $target = $t.TargetFile
 
     try {
-        New-Item -ItemType SymbolicLink -Path $target -Target $canonicalSource | Out-Null
+        # 使用 cmd /c mklink 创建软链接，比 New-Item 更可靠
+        $mklinkArgs = "/c mklink `"$target`" `"$canonicalSource`""
+        $mklinkResult = cmd /c mklink "$target" "$canonicalSource" 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "mklink 失败 (退出码 $LASTEXITCODE): $mklinkResult"
+        }
         Write-Host "[完成] 已创建软链接 [" $t.Tool "]: " $target -ForegroundColor Green
         $created++
     } catch {
-        Write-Error ("创建软链接失败: " + $target)
-        Write-Error "请确保以管理员身份运行此脚本"
+        Write-Host "创建软链接失败: $target" -ForegroundColor Red
+        Write-Host "原因: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "请确保以管理员身份运行此脚本，或在 Windows 设置中启用开发者模式" -ForegroundColor Yellow
         Write-Host "按任意键退出..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
@@ -230,12 +241,13 @@ if (Test-Path $traeRuleDir) {
     # 创建软链接：用固定名称 rule-agents.md，避免与 Trae 自动生成的时间戳文件混淆
     $traeRuleLink = Join-Path $traeRuleDir "rule-agents.md"
     try {
-        New-Item -ItemType SymbolicLink -Path $traeRuleLink -Target $canonicalSource | Out-Null
+        New-Item -ItemType SymbolicLink -Path $traeRuleLink -Target $canonicalSource -Force | Out-Null
         Write-Host "[完成] 已创建软链接 [Trae-Work]: " $traeRuleLink -ForegroundColor Green
         $created++
     } catch {
-        Write-Error ("创建软链接失败: " + $traeRuleLink)
-        Write-Error "请确保以管理员身份运行此脚本"
+        Write-Host "创建软链接失败: $traeRuleLink" -ForegroundColor Red
+        Write-Host "原因: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "请确保以管理员身份运行此脚本，或在 Windows 设置中启用开发者模式" -ForegroundColor Yellow
         Write-Host "按任意键退出..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
@@ -264,12 +276,13 @@ if (Test-Path $qoderRuleDir) {
     }
 
     try {
-        New-Item -ItemType SymbolicLink -Path $qoderTarget -Target $canonicalSource | Out-Null
+        New-Item -ItemType SymbolicLink -Path $qoderTarget -Target $canonicalSource -Force | Out-Null
         Write-Host "[完成] 已创建软链接 [QoderWork]: " $qoderTarget -ForegroundColor Green
         $created++
     } catch {
-        Write-Error ("创建软链接失败: " + $qoderTarget)
-        Write-Error "请确保以管理员身份运行此脚本"
+        Write-Host "创建软链接失败: $qoderTarget" -ForegroundColor Red
+        Write-Host "原因: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "请确保以管理员身份运行此脚本，或在 Windows 设置中启用开发者模式" -ForegroundColor Yellow
         Write-Host "按任意键退出..." -ForegroundColor Gray
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         exit 1
@@ -333,11 +346,12 @@ if (-not (Test-Path $skillsSource)) {
 
         # 创建目录软链接
         try {
-            New-Item -ItemType SymbolicLink -Path $s.TargetDir -Target $skillsSource | Out-Null
+            New-Item -ItemType SymbolicLink -Path $s.TargetDir -Target $skillsSource -Force | Out-Null
             Write-Host "[完成] 已创建软链接 [" $s.Tool "]: " $s.TargetDir -ForegroundColor Green
         } catch {
-            Write-Error ("创建软链接失败: " + $s.TargetDir)
-            Write-Error "请确保以管理员身份运行此脚本"
+            Write-Host "创建软链接失败: $($s.TargetDir)" -ForegroundColor Red
+            Write-Host "原因: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "请确保以管理员身份运行此脚本，或在 Windows 设置中启用开发者模式" -ForegroundColor Yellow
             Write-Host "按任意键退出..." -ForegroundColor Gray
             $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
             exit 1
