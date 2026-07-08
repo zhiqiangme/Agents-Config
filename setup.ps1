@@ -1,4 +1,4 @@
-﻿# 设置 AI 代理配置软链接
+# 设置 AI 代理配置软链接
 # 将 AGENTS.md 同步到 Codex、OpenCode、Gemini、Claude
 
 # 引入 Visual Basic 文件系统 API，用于将旧文件送入回收站而非直接删除
@@ -195,11 +195,6 @@ foreach ($t in $targets) {
     }
 
     $target = $t.TargetFile
-    $targetDir = Split-Path $target -Parent
-    if (-not (Test-Path $targetDir)) {
-        Write-Host "创建目录: " $targetDir -ForegroundColor Yellow
-        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-    }
 
     try {
         New-Item -ItemType SymbolicLink -Path $target -Target $canonicalSource | Out-Null
@@ -316,11 +311,12 @@ if (-not (Test-Path $skillsSource)) {
     }
 
     foreach ($s in $skillTargets) {
-        # 确保父目录存在
+        # 父目录不存在则跳过，不创建不存在的工具目录
         $parentDir = Split-Path $s.TargetDir -Parent
         if (-not (Test-Path $parentDir)) {
-            Write-Host "创建目录: " $parentDir -ForegroundColor Yellow
-            New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
+            Write-Host "[跳过] " $s.Tool ": 未检测到配置目录 " $parentDir -ForegroundColor DarkGray
+            $skipped++
+            continue
         }
 
         # 目标已存在时清理：软链接直接删除，普通目录送入回收站
