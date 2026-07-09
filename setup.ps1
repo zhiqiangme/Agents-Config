@@ -202,12 +202,9 @@ foreach ($t in $targets) {
     $target = $t.TargetFile
 
     try {
-        # 使用 cmd /c mklink 创建软链接，比 New-Item 更可靠
-        $mklinkArgs = "/c mklink `"$target`" `"$canonicalSource`""
-        $mklinkResult = cmd /c mklink "$target" "$canonicalSource" 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "mklink 失败 (退出码 $LASTEXITCODE): $mklinkResult"
-        }
+        # 使用 New-Item 创建文件软链接，移除对 cmd /c mklink 的依赖
+        # 需管理员权限或已开启 Windows 开发者模式
+        New-Item -ItemType SymbolicLink -Path $target -Target $canonicalSource -Force | Out-Null
         Write-Host "[完成] 已创建软链接 [" $t.Tool "]: " $target -ForegroundColor Green
         $created++
     } catch {

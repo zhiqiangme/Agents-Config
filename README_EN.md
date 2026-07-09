@@ -25,7 +25,6 @@ Uses Windows Symbolic Links to sync a single `AGENTS.md` across multiple AI tool
 ai-agents-config/
 ├── AGENTS.md      # Main configuration file (source)
 ├── setup.ps1      # PowerShell setup script
-├── setup.cmd      # Windows batch wrapper script
 ├── README.md      # Chinese documentation
 ├── README_EN.md   # English documentation
 └── LICENSE        # MIT License
@@ -36,7 +35,6 @@ ai-agents-config/
 ```
 agents-config/
 ├── setup.ps1      # PowerShell setup script
-├── setup.cmd      # Windows batch wrapper
 ├── README.md      # Chinese documentation
 ├── README_EN.md   # English documentation
 └── LICENSE        # MIT license
@@ -75,7 +73,7 @@ If the source directory does not exist, Skills sync is skipped without affecting
 
 1. Create the configuration file at `%USERPROFILE%\.agents\AGENTS.md` (skip if it already exists)
 2. If any tool directory (e.g. `\.codex`) already contains an `AGENTS.md` or `CLAUDE.md`, the script picks it up automatically
-3. Run `setup.cmd` (the script will request administrator privileges via UAC; click "Yes" on the prompt)
+3. Run `setup.ps1` (the script will request administrator privileges via UAC; click "Yes" on the prompt). You can also run it directly with `pwsh -ExecutionPolicy Bypass -File setup.ps1`.
 
 ## Smart Collection
 

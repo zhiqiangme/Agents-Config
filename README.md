@@ -24,7 +24,6 @@
 ```
 agents-config/
 ├── setup.ps1      # PowerShell 设置脚本
-├── setup.cmd      # Windows 批处理包装脚本
 ├── README.md      # 中文说明
 ├── README_EN.md   # 英文说明
 └── LICENSE        # MIT 许可证
@@ -63,7 +62,7 @@ agents-config/
 
 1. 在 `%USERPROFILE%\.agents\AGENTS.md` 创建配置文件（如果已存在可跳过）
 2. 如果某个工具的目录（如 `\.codex`）中已有 `AGENTS.md` 或 `CLAUDE.md`，脚本会自动识别并复用
-3. 运行 `setup.cmd`（脚本会自动请求管理员权限，UAC 弹窗点「是」即可）
+3. 运行 `setup.ps1`（脚本会自动请求管理员权限，UAC 弹窗点「是」即可；也可用 `pwsh -ExecutionPolicy Bypass -File setup.ps1`）
 
 ## 智能收集逻辑
 
