@@ -356,7 +356,7 @@ if (-not (Test-Path $skillsSource)) {
     }
 }
 
-# WSL OpenCode 同步：将 AGENTS.md 和 Skills 复制到 WSL 文件系统的 OpenCode 配置目录
+# WSL 同步：将 AGENTS.md 和 Skills 复制到 WSL 文件系统的 OpenCode / Codex 配置目录
 # WSL 内无法使用 Windows 软链接，因此采用文件复制方式同步
 $wslDistro = "Ubuntu-26.04"
 
@@ -369,7 +369,7 @@ function ConvertTo-WslPath([string]$winPath) {
 }
 
 Write-Host ""
-Write-Host "正在同步 WSL OpenCode 配置..." -ForegroundColor Cyan
+Write-Host "正在同步 WSL 配置 (OpenCode / Codex)..." -ForegroundColor Cyan
 
 # 检查 WSL 发行版是否可用
 $wslList = (wsl -l -q 2>$null) -replace "`0", "" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
@@ -383,25 +383,38 @@ if ($wslList -notcontains $wslDistro) {
         Write-Host "[跳过] WSL: 无法获取主目录" -ForegroundColor DarkGray
         $skipped++
     } else {
-        $wslOpenCodeDir = "$wslHome/.config/opencode"
-
         # 转换规范源路径为 WSL 格式
         $wslCanonicalSource = ConvertTo-WslPath $canonicalSource
-
-        # 创建目标目录并复制 AGENTS.md
-        wsl -d $wslDistro -- mkdir -p "$wslOpenCodeDir"
-        wsl -d $wslDistro -- cp "$wslCanonicalSource" "$wslOpenCodeDir/AGENTS.md"
-        Write-Host "[完成] 已复制 AGENTS.md -> WSL:~/.config/opencode/AGENTS.md" -ForegroundColor Green
-        $created++
-
-        # 复制 Skills 目录
+        $wslSkillsSource = $null
         if (Test-Path $skillsSource) {
             $wslSkillsSource = ConvertTo-WslPath $skillsSource
-            # 移除旧副本后整体复制，确保内容与规范源一致
-            wsl -d $wslDistro -- bash -c "rm -rf '$wslOpenCodeDir/skills' && cp -r '$wslSkillsSource' '$wslOpenCodeDir/skills'"
-            Write-Host "[完成] 已复制 Skills -> WSL:~/.config/opencode/skills/" -ForegroundColor Green
+        }
+
+        # WSL 同步目标列表：Tool=工具名，ConfigDir=WSL 内配置目录
+        $wslTargets = @(
+            @{ Tool = "OpenCode"; ConfigDir = "$wslHome/.config/opencode" },
+            @{ Tool = "Codex";    ConfigDir = "$wslHome/.codex" }
+        )
+
+        foreach ($wt in $wslTargets) {
+            $dir = $wt.ConfigDir
+
+            # 创建目标目录并复制 AGENTS.md
+            wsl -d $wslDistro -- mkdir -p "$dir"
+            wsl -d $wslDistro -- cp "$wslCanonicalSource" "$dir/AGENTS.md"
+            Write-Host "[完成] 已复制 AGENTS.md -> WSL [" $wt.Tool "]: $dir/AGENTS.md" -ForegroundColor Green
             $created++
-        } else {
+
+            # 复制 Skills 目录
+            if ($wslSkillsSource) {
+                # 移除旧副本后整体复制，确保内容与规范源一致
+                wsl -d $wslDistro -- bash -c "rm -rf '$dir/skills' && cp -r '$wslSkillsSource' '$dir/skills'"
+                Write-Host "[完成] 已复制 Skills -> WSL [" $wt.Tool "]: $dir/skills/" -ForegroundColor Green
+                $created++
+            }
+        }
+
+        if (-not $wslSkillsSource) {
             Write-Host "[跳过] WSL Skills: 未检测到源目录 " $skillsSource -ForegroundColor DarkGray
         }
     }
