@@ -356,6 +356,57 @@ if (-not (Test-Path $skillsSource)) {
     }
 }
 
+# WSL OpenCode 同步：将 AGENTS.md 和 Skills 复制到 WSL 文件系统的 OpenCode 配置目录
+# WSL 内无法使用 Windows 软链接，因此采用文件复制方式同步
+$wslDistro = "Ubuntu-26.04"
+
+# 将 Windows 路径转换为 WSL /mnt/x/... 格式（避免依赖 wslpath 子进程）
+function ConvertTo-WslPath([string]$winPath) {
+    $full = (Resolve-Path $winPath -ErrorAction Stop).ProviderPath
+    $drive = $full.Substring(0, 1).ToLower()
+    $rest = $full.Substring(2) -replace '\\', '/'
+    return "/mnt/$drive$rest"
+}
+
+Write-Host ""
+Write-Host "正在同步 WSL OpenCode 配置..." -ForegroundColor Cyan
+
+# 检查 WSL 发行版是否可用
+$wslList = (wsl -l -q 2>$null) -replace "`0", "" | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+if ($wslList -notcontains $wslDistro) {
+    Write-Host "[跳过] WSL: 未检测到发行版 " $wslDistro -ForegroundColor DarkGray
+    $skipped++
+} else {
+    # 获取 WSL 用户主目录
+    $wslHome = (wsl -d $wslDistro -- bash -c 'echo $HOME' 2>$null).Trim()
+    if (-not $wslHome) {
+        Write-Host "[跳过] WSL: 无法获取主目录" -ForegroundColor DarkGray
+        $skipped++
+    } else {
+        $wslOpenCodeDir = "$wslHome/.config/opencode"
+
+        # 转换规范源路径为 WSL 格式
+        $wslCanonicalSource = ConvertTo-WslPath $canonicalSource
+
+        # 创建目标目录并复制 AGENTS.md
+        wsl -d $wslDistro -- mkdir -p "$wslOpenCodeDir"
+        wsl -d $wslDistro -- cp "$wslCanonicalSource" "$wslOpenCodeDir/AGENTS.md"
+        Write-Host "[完成] 已复制 AGENTS.md -> WSL:~/.config/opencode/AGENTS.md" -ForegroundColor Green
+        $created++
+
+        # 复制 Skills 目录
+        if (Test-Path $skillsSource) {
+            $wslSkillsSource = ConvertTo-WslPath $skillsSource
+            # 移除旧副本后整体复制，确保内容与规范源一致
+            wsl -d $wslDistro -- bash -c "rm -rf '$wslOpenCodeDir/skills' && cp -r '$wslSkillsSource' '$wslOpenCodeDir/skills'"
+            Write-Host "[完成] 已复制 Skills -> WSL:~/.config/opencode/skills/" -ForegroundColor Green
+            $created++
+        } else {
+            Write-Host "[跳过] WSL Skills: 未检测到源目录 " $skillsSource -ForegroundColor DarkGray
+        }
+    }
+}
+
 Write-Host ""
 Write-Host "完成！新建 " $created " 个软链接，跳过 " $skipped " 个未安装的工具。" -ForegroundColor Cyan
 Write-Host "规范源: " $canonicalSource -ForegroundColor Cyan
