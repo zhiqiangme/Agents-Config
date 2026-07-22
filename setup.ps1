@@ -303,6 +303,7 @@ if (-not (Test-Path $skillsSource)) {
         @{ Tool = "WorkBuddy"; TargetDir = "$env:USERPROFILE\.workbuddy\skills" },
         @{ Tool = "Trae-CN";   TargetDir = "$env:USERPROFILE\.trae-cn\skills" },
         @{ Tool = "Claude";    TargetDir = "$env:USERPROFILE\.claude\skills" },
+        @{ Tool = "Codex";     TargetDir = "$env:USERPROFILE\.codex\skills" },
         @{ Tool = "QoderWork"; TargetDir = "$env:USERPROFILE\.qoderworkcn\skills" }
     )
 
