@@ -58,7 +58,7 @@ agents-config/
 | Codex | `%USERPROFILE%\.codex\skills` |
 | QoderWork | `%USERPROFILE%\.qoderworkcn\skills` |
 
-源目录不存在时自动跳过 Skills 同步，不影响主流程。
+同步时会自动删除各目标 `skills` 目录下目标已不存在的一级软链接。源目录不存在时自动跳过 Skills 同步，不影响主流程。
 
 ## 使用方法
 

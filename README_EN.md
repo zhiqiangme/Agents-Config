@@ -69,7 +69,7 @@ When `%USERPROFILE%\.agents\skills` exists, the script creates a separate symbol
 | Codex | `%USERPROFILE%\.codex\skills` |
 | QoderWork | `%USERPROFILE%\.qoderworkcn\skills` |
 
-If the source directory does not exist, Skills sync is skipped without affecting the main flow.
+During synchronization, broken first-level symbolic links in each target `skills` directory are removed automatically. If the source directory does not exist, Skills sync is skipped without affecting the main flow.
 
 ## Usage
 

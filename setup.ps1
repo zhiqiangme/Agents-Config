@@ -350,6 +350,14 @@ if (-not (Test-Path $skillsSource)) {
             New-Item -ItemType Directory -Path $s.TargetDir -Force | Out-Null
         }
 
+        # 清理目标 skills 目录下目标已不存在的一级软链接
+        Get-ChildItem -LiteralPath $s.TargetDir -Force | ForEach-Object {
+            if ($_.LinkType -eq 'SymbolicLink' -and -not (Test-Path -LiteralPath $_.FullName)) {
+                Write-Host "移除失效的 Skills 软链接: " $_.FullName -ForegroundColor Yellow
+                Remove-Item -LiteralPath $_.FullName -Force
+            }
+        }
+
         foreach ($skillSourceDir in $skillSourceDirs) {
             $skillTargetDir = Join-Path $s.TargetDir $skillSourceDir.Name
 
