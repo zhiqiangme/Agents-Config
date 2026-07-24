@@ -48,13 +48,15 @@ agents-config/
 
 ### Skills 目录
 
-当 `%USERPROFILE%\.agents\skills` 存在时，脚本会同步将其软链接到以下位置：
+当 `%USERPROFILE%\.agents\skills` 存在时，脚本会将其中每个一级子文件夹分别软链接到以下位置。各工具的 `skills` 目录本身保持为普通目录：
 
 | 工具 | 目标路径 |
 |------|----------|
 | WorkBuddy | `%USERPROFILE%\.workbuddy\skills` |
 | Trae-CN | `%USERPROFILE%\.trae-cn\skills` |
 | Claude | `%USERPROFILE%\.claude\skills` |
+| Codex | `%USERPROFILE%\.codex\skills` |
+| QoderWork | `%USERPROFILE%\.qoderworkcn\skills` |
 
 源目录不存在时自动跳过 Skills 同步，不影响主流程。
 

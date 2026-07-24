@@ -289,7 +289,7 @@ if (Test-Path $qoderRuleDir) {
     $skipped++
 }
 
-# Skills 目录同步：将规范源 .agents\skills 软链接到各工具的 skills 目录
+# Skills 目录同步：将规范源 .agents\skills 下的一级子目录分别软链接到各工具
 $skillsSource = Join-Path $env:USERPROFILE ".agents\skills"
 
 if (-not (Test-Path $skillsSource)) {
@@ -298,6 +298,13 @@ if (-not (Test-Path $skillsSource)) {
     Write-Host ""
     Write-Host "正在同步 Skills 目录..." -ForegroundColor Cyan
 
+    # 只同步一级 Skills 子目录，目标 skills 本身保持为普通目录
+    $skillSourceDirs = Get-ChildItem -Path $skillsSource -Directory -Force
+    if ($skillSourceDirs.Count -eq 0) {
+        Write-Host "Skills 源目录下没有一级子目录，跳过 Skills 同步。" -ForegroundColor DarkGray
+    }
+
+    if ($skillSourceDirs.Count -gt 0) {
     # 各工具的 skills 目标目录
     $skillTargets = @(
         @{ Tool = "WorkBuddy"; TargetDir = "$env:USERPROFILE\.workbuddy\skills" },
@@ -330,30 +337,52 @@ if (-not (Test-Path $skillsSource)) {
             continue
         }
 
-        # 目标已存在时清理：软链接直接删除，普通目录送入回收站
+        # 兼容旧版本：若整个 skills 目录是软链接，先移除并改建为普通目录
         if (Test-Path $s.TargetDir) {
             $it = Get-Item $s.TargetDir -Force
             if ($it.LinkType -eq 'SymbolicLink') {
-                Write-Host "移除现有软链接: " $s.TargetDir -ForegroundColor Yellow
+                Write-Host "移除旧版 Skills 目录软链接: " $s.TargetDir -ForegroundColor Yellow
                 Remove-Item $s.TargetDir -Force
-            } else {
-                Write-Host "移入回收站: " $s.TargetDir -ForegroundColor Yellow
-                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory($s.TargetDir, 'OnlyErrorDialogs', 'SendToRecycleBin')
             }
         }
 
-        # 创建目录软链接
-        try {
-            New-Item -ItemType SymbolicLink -Path $s.TargetDir -Target $skillsSource -Force | Out-Null
-            Write-Host "[完成] 已创建软链接 [" $s.Tool "]: " $s.TargetDir -ForegroundColor Green
-        } catch {
-            Write-Host "创建软链接失败: $($s.TargetDir)" -ForegroundColor Red
-            Write-Host "原因: $($_.Exception.Message)" -ForegroundColor Red
-            Write-Host "请确保以管理员身份运行此脚本，或在 Windows 设置中启用开发者模式" -ForegroundColor Yellow
-            Write-Host "按任意键退出..." -ForegroundColor Gray
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-            exit 1
+        if (-not (Test-Path $s.TargetDir)) {
+            New-Item -ItemType Directory -Path $s.TargetDir -Force | Out-Null
         }
+
+        foreach ($skillSourceDir in $skillSourceDirs) {
+            $skillTargetDir = Join-Path $s.TargetDir $skillSourceDir.Name
+
+            # 同名旧项需先清理：软链接直接移除，普通目录送入回收站
+            if (Test-Path $skillTargetDir) {
+                $skillTargetItem = Get-Item $skillTargetDir -Force
+                if ($skillTargetItem.LinkType -eq 'SymbolicLink') {
+                    Write-Host "移除现有软链接: " $skillTargetDir -ForegroundColor Yellow
+                    Remove-Item $skillTargetDir -Force
+                } else {
+                    Write-Host "移入回收站: " $skillTargetDir -ForegroundColor Yellow
+                    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(
+                        $skillTargetDir,
+                        'OnlyErrorDialogs',
+                        'SendToRecycleBin'
+                    )
+                }
+            }
+
+            try {
+                New-Item -ItemType SymbolicLink -Path $skillTargetDir -Target $skillSourceDir.FullName -Force | Out-Null
+                Write-Host "[完成] 已创建 Skills 软链接 [" $s.Tool "]: " $skillTargetDir -ForegroundColor Green
+                $created++
+            } catch {
+                Write-Host "创建软链接失败: $skillTargetDir" -ForegroundColor Red
+                Write-Host "原因: $($_.Exception.Message)" -ForegroundColor Red
+                Write-Host "请确保以管理员身份运行此脚本，或在 Windows 设置中启用开发者模式" -ForegroundColor Yellow
+                Write-Host "按任意键退出..." -ForegroundColor Gray
+                $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                exit 1
+            }
+        }
+    }
     }
 }
 

@@ -59,13 +59,15 @@ All links point to the canonical source at `%USERPROFILE%\.agents\AGENTS.md`.
 
 ### Skills directory
 
-When `%USERPROFILE%\.agents\skills` exists, the script also symlinks it to:
+When `%USERPROFILE%\.agents\skills` exists, the script creates a separate symbolic link for each first-level subfolder at the following locations. Each tool's `skills` directory remains a regular directory:
 
 | Tool | Target path |
 |------|-------------|
 | WorkBuddy | `%USERPROFILE%\.workbuddy\skills` |
 | Trae-CN | `%USERPROFILE%\.trae-cn\skills` |
 | Claude | `%USERPROFILE%\.claude\skills` |
+| Codex | `%USERPROFILE%\.codex\skills` |
+| QoderWork | `%USERPROFILE%\.qoderworkcn\skills` |
 
 If the source directory does not exist, Skills sync is skipped without affecting the main flow.
 
