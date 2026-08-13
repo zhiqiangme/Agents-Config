@@ -7,17 +7,17 @@
 
 # AI 代理配置管理
 
-统一管理 Codex、OpenCode、Gemini、Claude 的代理配置文件。
+统一管理 DeepSeek Harness（dsh）、Codex、OpenCode、Gemini、Claude 等 AI 工具的代理配置文件与 Skills。
 
 ## 痛点
 
-想必你也遇到过这样的困扰：Codex 中放一份 `AGENTS.md`，OpenCode 中又要放一份，Claude Code 还得专门放一个 `CLAUDE.md`，而它们承载的内容本应完全相同。每次规范更新都要逐个文件手动复制、反复同步，繁琐又容易遗漏。
+Codex 中放一份 `AGENTS.md`，OpenCode 中又要放一份，Claude Code 还得专门放一个 `CLAUDE.md`，而它们承载的内容本应完全相同。每次规范更新都要逐个文件手动复制、反复同步，繁琐又容易遗漏。
 
 本项目的目的正是消除这种重复：只维护一份 `AGENTS.md`，通过软链接分发到各个 AI 工具的配置目录，所有工具都自动识别同一份内容——编辑一处，全部生效。
 
 ## 原理
 
-通过 Windows 软链接（Symbolic Link）将一份 `AGENTS.md` 同步到多个 AI 工具的配置目录，修改一处，全部生效。
+`%USERPROFILE%\.agents\AGENTS.md` 是唯一的母版（规范源），各工具目录中的配置文件都是指向它的 Windows 软链接（Symbolic Link）。通过任意工具编辑配置时，实际写入的都是母版本身，因此不存在"哪个最新"的问题。
 
 ## 目录结构
 
@@ -33,18 +33,21 @@ agents-config/
 
 ## 同步目标
 
-运行脚本后，会自动创建软链接到以下位置：
+运行脚本后，会自动创建软链接到以下位置。工具对应的配置目录不存在时自动跳过。
 
 ### AGENTS 配置文件
 
-| 工具 | 目标路径 |
-|------|----------|
-| Codex | `%USERPROFILE%\.codex\AGENTS.md` |
-| OpenCode | `%USERPROFILE%\.config\opencode\AGENTS.md` |
-| Gemini | `%USERPROFILE%\.gemini\config\AGENTS.md` |
-| Claude | `%USERPROFILE%\.claude\CLAUDE.md` |
+按以下优先级依次创建软链接，全部指向规范源：
 
-所有软链接均指向规范源 `%USERPROFILE%\.agents\AGENTS.md`。
+| 优先级 | 工具 | 目标路径 |
+|--------|------|----------|
+| 1 | DeepSeek Harness | `%DSH_HOME%\AGENTS.md`（未设置时默认为 `%USERPROFILE%\.dsh\AGENTS.md`） |
+| 2 | Codex | `%USERPROFILE%\.codex\AGENTS.md` |
+| 3 | OpenCode | `%USERPROFILE%\.config\opencode\AGENTS.md` |
+| 4 | Gemini | `%USERPROFILE%\.gemini\config\AGENTS.md` |
+| 5 | Claude | `%USERPROFILE%\.claude\CLAUDE.md` |
+
+> DeepSeek Harness 优先读取 `DSH_HOME` 环境变量，未设置时回退到 `~\.dsh`，与 dsh 自身的目录解析规则一致。
 
 ### Skills 目录
 
@@ -55,34 +58,34 @@ agents-config/
 | WorkBuddy | `%USERPROFILE%\.workbuddy\skills` |
 | Trae-CN | `%USERPROFILE%\.trae-cn\skills` |
 | Claude | `%USERPROFILE%\.claude\skills` |
-| Codex | `%USERPROFILE%\.codex\skills` |
 | QoderWork | `%USERPROFILE%\.qoderworkcn\skills` |
+| Marvis | `%APPDATA%\Tencent\Marvis\User\<用户ID>\skills\custom`（用户 ID 自动检测） |
 
-同步时会自动删除各目标 `skills` 目录下目标已不存在的一级软链接。源目录不存在时自动跳过 Skills 同步，不影响主流程。
+> DeepSeek Harness 与 Codex 直接读取 `%USERPROFILE%\.agents\skills`，无需同步。
+> 同步时会自动删除各目标 `skills` 目录下目标已不存在的一级软链接。源目录不存在时自动跳过 Skills 同步，不影响主流程。
+
+### 其他规则文件
+
+| 目标 | 说明 |
+|------|------|
+| Trae Work CN | 删除 `%USERPROFILE%\.trae-cn\user_rules` 下所有 `rule-*.md`，创建指向规范源的 `rule-agents.md` 软链接 |
+| Qoder Work CN | 将 `%USERPROFILE%\.qoderworkcn\awareness\main\AGENTS.md` 替换为指向规范源的软链接 |
+| WSL | 复制（非软链接）`AGENTS.md` 与 Skills 到 WSL `Ubuntu-26.04` 发行版内的 OpenCode / Codex 配置目录（`~/.config/opencode`、`~/.codex`） |
 
 ## 使用方法
 
-1. 在 `%USERPROFILE%\.agents\AGENTS.md` 创建配置文件（如果已存在可跳过）
-2. 如果某个工具的目录（如 `\.codex`）中已有 `AGENTS.md` 或 `CLAUDE.md`，脚本会自动识别并复用
-3. 运行 `setup.ps1`（脚本会自动请求管理员权限，UAC 弹窗点「是」即可；也可用 `pwsh -ExecutionPolicy Bypass -File setup.ps1`）
+1. 在 `%USERPROFILE%\.agents\AGENTS.md` 创建配置文件（脚本要求母版存在且非空）
+2. 运行 `setup.ps1`（脚本会自动请求管理员权限，UAC 弹窗点「是」即可；也可用 `pwsh -ExecutionPolicy Bypass -File setup.ps1`）
 
-## 智能收集逻辑
+## 同步流程
 
-脚本会扫描以下位置作为候选配置文件：
+1. 校验规范源存在且非空，不满足则提示并退出
+2. 清理各工具目录中原有的 `AGENTS.md` / `CLAUDE.md`：软链接直接删除，真实文件移入回收站（可恢复）
+3. 按上表优先级依次创建指向规范源的软链接（DeepSeek Harness 最先）
+4. 同步 Trae Work CN、Qoder Work CN 规则文件
+5. 同步 Skills 目录与 WSL 配置
 
-- 规范源：`%USERPROFILE%\.agents\AGENTS.md`
-- 四个工具目录下的 `AGENTS.md` 或 `CLAUDE.md`（`CLAUDE.md` 会被复制时自动重命名为 `AGENTS.md`）
-
-然后按以下规则处理：
-
-| 情况 | 处理方式 |
-|------|----------|
-| 没有候选文件 | 提示用户在任一位置创建后重试 |
-| 只有一个非空候选 | **移动**到规范源 |
-| 多个候选且内容一致 | 选择最近修改的，**复制**到规范源 |
-| 多个候选且内容不一致 | 列出所有候选让用户选择，选中的**复制**到规范源 |
-
-之后清理四个工具目录中原有的 `AGENTS.md` / `CLAUDE.md`，再创建指向规范源的软链接。
+规范源是唯一母版：脚本不会扫描、比较或挑选工具目录中的"最新"文件。即使通过某个工具修改配置，实际改动的也是规范源本身。
 
 ## 注意事项
 
@@ -91,7 +94,7 @@ agents-config/
 - 无需手动以管理员身份运行，脚本会通过 UAC 自动提权（提权后仍保持使用相同版本的解释器）
 - 支持 Windows 10/11
 - 脚本会检测工具是否已安装（通过配置目录是否存在判断），未装的工具自动跳过
-- 如需新增工具，编辑 `setup.ps1` 中的 `$targets` 数组即可
+- 如需新增 AGENTS.md 同步工具，编辑 `setup.ps1` 中的 `$targets` 数组；新增 Skills 同步工具编辑 `$skillTargets` 数组
 
 ## 许可证
 
