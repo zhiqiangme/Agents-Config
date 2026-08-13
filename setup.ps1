@@ -211,11 +211,11 @@ if (-not (Test-Path $skillsSource)) {
 
     if ($skillSourceDirs.Count -gt 0) {
     # 各工具的 skills 目标目录
+    # Codex 与 dsh 一样直接读取 ~\.agents\skills，无需同步
     $skillTargets = @(
         @{ Tool = "WorkBuddy"; TargetDir = "$env:USERPROFILE\.workbuddy\skills" },
         @{ Tool = "Trae-CN";   TargetDir = "$env:USERPROFILE\.trae-cn\skills" },
         @{ Tool = "Claude";    TargetDir = "$env:USERPROFILE\.claude\skills" },
-        @{ Tool = "Codex";     TargetDir = "$env:USERPROFILE\.codex\skills" },
         @{ Tool = "QoderWork"; TargetDir = "$env:USERPROFILE\.qoderworkcn\skills" }
     )
 
