@@ -1,5 +1,5 @@
 # 设置 AI 代理配置软链接
-# 将 AGENTS.md 同步到 Codex、OpenCode、Gemini、Claude
+# 将 AGENTS.md 同步到 DeepSeek Harness、Codex、OpenCode、Gemini、Claude
 
 # 引入 Visual Basic 文件系统 API，用于将旧文件送入回收站而非直接删除
 Add-Type -AssemblyName Microsoft.VisualBasic
@@ -29,12 +29,18 @@ if (-not $isAdmin -and $devMode -ne 1) {
     exit 0
 }
 
+# DeepSeek Harness 配置目录：解析规则与 dsh 自身一致（优先 $env:DSH_HOME，未设置时回退 ~\.dsh）
+# dsh 直接读取 ~\.agents\skills，因此 skills 无需为 dsh 单独同步
+$dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
+
 # 同步目标：Tool=工具名称，ConfigDir=用于判断工具是否已安装的目录，TargetFile=软链接目标路径
+# dsh 排在最前，其 AGENTS.md 在所有 Harness 软件中优先级最高；未检测到 dsh 配置目录时自动跳过
 $targets = @(
-    @{ Tool = "Codex";    ConfigDir = "$env:USERPROFILE\.codex";            TargetFile = "$env:USERPROFILE\.codex\AGENTS.md" },
+    @{ Tool = "DSH";      ConfigDir = $dshHome;                            TargetFile = "$dshHome\AGENTS.md" },
+    @{ Tool = "Codex";    ConfigDir = "$env:USERPROFILE\.codex";           TargetFile = "$env:USERPROFILE\.codex\AGENTS.md" },
     @{ Tool = "OpenCode"; ConfigDir = "$env:USERPROFILE\.config\opencode"; TargetFile = "$env:USERPROFILE\.config\opencode\AGENTS.md" },
     @{ Tool = "Gemini";   ConfigDir = "$env:USERPROFILE\.gemini\config";   TargetFile = "$env:USERPROFILE\.gemini\config\AGENTS.md" },
-    @{ Tool = "Claude";   ConfigDir = "$env:USERPROFILE\.claude";           TargetFile = "$env:USERPROFILE\.claude\CLAUDE.md" }
+    @{ Tool = "Claude";   ConfigDir = "$env:USERPROFILE\.claude";          TargetFile = "$env:USERPROFILE\.claude\CLAUDE.md" }
 )
 
 # Trae Work CN 规则文件：仅参与清理与软链接创建，不参与候选扫描
@@ -75,7 +81,7 @@ if ($candidates.Count -eq 0) {
     Write-Host "未找到任何 AGENTS.md 或 CLAUDE.md 文件" -ForegroundColor Red
     Write-Host "请在以下任一位置创建配置文件后重试：" -ForegroundColor Yellow
     Write-Host "  - 规范源: " $canonicalSource
-    Write-Host "  - 四个工具配置目录之一 (.codex / .config\opencode / .gemini\config / .claude)" -ForegroundColor Yellow
+    Write-Host "  - 五个工具配置目录之一 (.dsh / .codex / .config\opencode / .gemini\config / .claude)" -ForegroundColor Yellow
     Write-Host "按任意键退出..." -ForegroundColor Gray
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
