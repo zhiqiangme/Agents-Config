@@ -43,135 +43,34 @@ $targets = @(
     @{ Tool = "Claude";   ConfigDir = "$env:USERPROFILE\.claude";          TargetFile = "$env:USERPROFILE\.claude\CLAUDE.md" }
 )
 
-# Trae Work CN 规则文件：仅参与清理与软链接创建，不参与候选扫描
+# Trae Work CN 规则文件：仅参与清理与软链接创建
 # 路径下原有 rule-*.md 会被删除并替换为指向规范源的软链接
 $traeRuleDir = "$env:USERPROFILE\.trae-cn\user_rules"
 
 # 规范源：唯一真实的配置文件
 $canonicalSource = Join-Path $env:USERPROFILE ".agents\AGENTS.md"
 
-Write-Host "正在扫描候选配置文件..." -ForegroundColor Cyan
+Write-Host "正在检查规范源..." -ForegroundColor Cyan
 
-# 收集所有非空候选：规范源 + 各工具目录的 AGENTS.md / CLAUDE.md
-$candidates = New-Object System.Collections.Generic.List[string]
-
-if (Test-Path $canonicalSource) {
-    $csContent = $null
-    try { $csContent = [System.IO.File]::ReadAllText($canonicalSource) } catch { }
-    if ($csContent -and $csContent.Length -gt 0) {
-        $candidates.Add($canonicalSource)
-    }
-}
-
-foreach ($t in $targets) {
-    $dir = Split-Path $t.TargetFile -Parent
-    foreach ($name in @('AGENTS.md', 'CLAUDE.md')) {
-        $p = Join-Path $dir $name
-        if ((Test-Path $p) -and (-not $candidates.Contains($p))) {
-            $pContent = $null
-            try { $pContent = [System.IO.File]::ReadAllText($p) } catch { }
-            if ($pContent -and $pContent.Length -gt 0) {
-                $candidates.Add($p)
-            }
-        }
-    }
-}
-
-if ($candidates.Count -eq 0) {
-    Write-Host "未找到任何 AGENTS.md 或 CLAUDE.md 文件" -ForegroundColor Red
-    Write-Host "请在以下任一位置创建配置文件后重试：" -ForegroundColor Yellow
-    Write-Host "  - 规范源: " $canonicalSource
-    Write-Host "  - 五个工具配置目录之一 (.dsh / .codex / .config\opencode / .gemini\config / .claude)" -ForegroundColor Yellow
+# 规范源是唯一母版：各工具目录的 AGENTS.md / CLAUDE.md 只是指向它的软链接，
+# 通过任意工具编辑配置时，实际修改的都是规范源本身，因此无需比较或挑选"最新"文件
+if (-not (Test-Path $canonicalSource)) {
+    Write-Host "未找到规范源: " $canonicalSource -ForegroundColor Red
+    Write-Host "请先在该路径创建 AGENTS.md 后再运行本脚本" -ForegroundColor Yellow
     Write-Host "按任意键退出..." -ForegroundColor Gray
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit 1
 }
 
-# 决定使用哪个候选作为规范源
-$selected = $null
-if ($candidates.Count -eq 1) {
-    $selected = $candidates[0]
-} else {
-    $firstHash = (Get-FileHash $candidates[0] -Algorithm SHA256).Hash
-    $allSame = $true
-    for ($i = 1; $i -lt $candidates.Count; $i++) {
-        if ((Get-FileHash $candidates[$i] -Algorithm SHA256).Hash -ne $firstHash) {
-            $allSame = $false
-            break
-        }
-    }
-
-    if ($allSame) {
-        # $candidates 是字符串列表，需经 Get-Item 获取 LastWriteTime 属性后再排序
-        $selected = $candidates | Get-Item | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
-        Write-Host "检测到 " $candidates.Count " 个内容相同的配置文件，已选择最近修改的：" $selected -ForegroundColor Cyan
-    } else {
-        Write-Host "检测到多个不同的配置文件，请选择使用哪一个：" -ForegroundColor Yellow
-        for ($i = 0; $i -lt $candidates.Count; $i++) {
-            $info = Get-Item $candidates[$i]
-            Write-Host "  [" ($i+1) "] " $candidates[$i] "  (大小: " $info.Length " 字节, 修改时间: " ($info.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')) ")"
-        }
-        Write-Host "请输入编号 (1-" $candidates.Count "): " -ForegroundColor Yellow -NoNewline
-        $choice = Read-Host
-        $idx = 0
-        if (-not [int]::TryParse($choice, [ref]$idx)) {
-            Write-Host "无效选择" -ForegroundColor Red
-            Write-Host "按任意键退出..." -ForegroundColor Gray
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-            exit 1
-        }
-        $idx--
-        if ($idx -lt 0 -or $idx -ge $candidates.Count) {
-            Write-Host "无效选择" -ForegroundColor Red
-            Write-Host "按任意键退出..." -ForegroundColor Gray
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-            exit 1
-        }
-        $selected = $candidates[$idx]
-    }
-}
-
-# 将选中的文件移动（唯一）或复制（多个）到规范源
-if ($selected -ne $canonicalSource) {
-    # 检查选中文件是否为指向规范源的软链接
-    # 避免软链接导致 Copy-Item/Move-Item 报错"Cannot overwrite with itself"
-    # Resolve-Path 不会解析软链接到最终目标，必须用 Get-Item 的 Target 属性
-    $skipSync = $false
-    if (Test-Path $canonicalSource) {
-        try {
-            $selItem = Get-Item $selected -Force
-            if ($selItem.LinkType -eq 'SymbolicLink' -and $selItem.Target) {
-                # 软链接的 Target 可能是相对或绝对路径，统一规范化为绝对路径
-                $targetResolved = $selItem.Target
-                if (-not [System.IO.Path]::IsPathRooted($targetResolved)) {
-                    $targetResolved = Join-Path (Split-Path $selected -Parent) $targetResolved
-                }
-                $targetResolved = (Resolve-Path $targetResolved -ErrorAction Stop).ProviderPath
-                $canonicalResolved = (Resolve-Path $canonicalSource -ErrorAction Stop).ProviderPath
-                if ($targetResolved -eq $canonicalResolved) {
-                    $skipSync = $true
-                }
-            }
-        } catch { }
-    }
-
-    if (-not $skipSync) {
-        $canonicalDir = Split-Path $canonicalSource -Parent
-        if (-not (Test-Path $canonicalDir)) {
-            Write-Host "创建目录: " $canonicalDir -ForegroundColor Yellow
-            New-Item -ItemType Directory -Path $canonicalDir -Force | Out-Null
-        }
-
-        if ($candidates.Count -eq 1) {
-            Move-Item $selected $canonicalSource -Force
-            Write-Host "已移动: " $selected " -> " $canonicalSource -ForegroundColor Green
-        } else {
-            Copy-Item $selected $canonicalSource -Force
-            Write-Host "已复制: " $selected " -> " $canonicalSource -ForegroundColor Green
-        }
-    } else {
-        Write-Host "规范源与选中文件指向同一实际文件，无需同步: " $selected -ForegroundColor DarkGray
-    }
+# 规范源为空时不继续，避免用空文件覆盖各工具原有配置
+$csContent = $null
+try { $csContent = [System.IO.File]::ReadAllText($canonicalSource) } catch { }
+if (-not $csContent -or $csContent.Length -eq 0) {
+    Write-Host "规范源为空: " $canonicalSource -ForegroundColor Red
+    Write-Host "请写入内容后再运行本脚本" -ForegroundColor Yellow
+    Write-Host "按任意键退出..." -ForegroundColor Gray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    exit 1
 }
 
 # 删除工具目录中原有的 AGENTS.md / CLAUDE.md，为创建新软链接做准备
