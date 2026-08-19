@@ -256,8 +256,10 @@ if (-not (Test-Path $skillsSource)) {
         }
 
         # 清理目标 skills 目录下目标已不存在的一级软链接
+        # 注意：PS7 中 Test-Path 对悬空符号链接默认返回 True（仅判断链接本身是否存在），
+        # 必须检查链接 Target 指向的路径是否真实存在，才能正确识别失效链接
         Get-ChildItem -LiteralPath $s.TargetDir -Force | ForEach-Object {
-            if ($_.LinkType -eq 'SymbolicLink' -and -not (Test-Path -LiteralPath $_.FullName)) {
+            if ($_.LinkType -eq 'SymbolicLink' -and -not (Test-Path -LiteralPath $_.Target)) {
                 Write-Host "移除失效的 Skills 软链接: " $_.FullName -ForegroundColor Yellow
                 Remove-Item -LiteralPath $_.FullName -Force
             }
