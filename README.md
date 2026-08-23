@@ -68,7 +68,7 @@ agents-config/
 
 | 目标 | 说明 |
 |------|------|
-| Trae Work CN | 删除 `%USERPROFILE%\.trae-cn\user_rules` 下所有 `rule-*.md`，创建指向规范源的 `rule-agents.md` 软链接 |
+| Trae Work CN | 检测 `%USERPROFILE%\.trae-cn`；自动创建 `user_rules` 目录，删除其中所有 `rule-*.md`，再创建指向规范源的 `rule-agents.md` 软链接 |
 | Qoder Work CN | 将 `%USERPROFILE%\.qoderworkcn\awareness\main\AGENTS.md` 替换为指向规范源的软链接 |
 | WSL | 复制（非软链接）`AGENTS.md` 与 Skills 到 WSL `Ubuntu-26.04` 发行版内的 OpenCode / Codex 配置目录（`~/.config/opencode`、`~/.codex`） |
 

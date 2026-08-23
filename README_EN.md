@@ -68,7 +68,7 @@ When `%USERPROFILE%\.agents\skills` exists, the script creates a separate symbol
 
 | Target | Behavior |
 |--------|----------|
-| Trae Work CN | Deletes all `rule-*.md` under `%USERPROFILE%\.trae-cn\user_rules`, then creates a `rule-agents.md` symlink to the canonical source |
+| Trae Work CN | Detects `%USERPROFILE%\.trae-cn`; creates `user_rules` when missing, deletes all `rule-*.md` there, then creates a `rule-agents.md` symlink to the canonical source |
 | Qoder Work CN | Replaces `%USERPROFILE%\.qoderworkcn\awareness\main\AGENTS.md` with a symlink to the canonical source |
 | WSL | Copies (not symlinks) `AGENTS.md` and Skills into the OpenCode / Codex config directories (`~/.config/opencode`, `~/.codex`) of the WSL `Ubuntu-26.04` distro |
 

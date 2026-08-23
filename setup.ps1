@@ -43,9 +43,10 @@ $targets = @(
     @{ Tool = "Claude";   ConfigDir = "$env:USERPROFILE\.claude";          TargetFile = "$env:USERPROFILE\.claude\CLAUDE.md" }
 )
 
-# Trae Work CN 规则文件：仅参与清理与软链接创建
-# 路径下原有 rule-*.md 会被删除并替换为指向规范源的软链接
-$traeRuleDir = "$env:USERPROFILE\.trae-cn\user_rules"
+# Trae Work CN 规则文件：以 .trae-cn 根目录判断软件是否存在
+# user_rules 不存在时自动创建，其中原有 rule-*.md 会被替换为指向规范源的软链接
+$traeConfigDir = "$env:USERPROFILE\.trae-cn"
+$traeRuleDir = Join-Path $traeConfigDir "user_rules"
 
 # 规范源：唯一真实的配置文件
 $canonicalSource = Join-Path $env:USERPROFILE ".agents\AGENTS.md"
@@ -124,9 +125,23 @@ foreach ($t in $targets) {
 
 # Trae Work CN 规则文件同步：删除 user_rules 目录下所有 rule-*.md，
 # 创建一个指向规范源的软链接（命名保持 rule- 前缀，由 Trae 自行管理时间戳）
-if (Test-Path $traeRuleDir) {
+if (Test-Path -LiteralPath $traeConfigDir -PathType Container) {
     Write-Host ""
     Write-Host "正在同步 Trae Work CN 规则文件..." -ForegroundColor Cyan
+
+    # Trae 已存在但规则目录尚未生成时，先创建完整目录结构
+    if (-not (Test-Path -LiteralPath $traeRuleDir -PathType Container)) {
+        try {
+            New-Item -ItemType Directory -Path $traeRuleDir -Force -ErrorAction Stop | Out-Null
+            Write-Host "已创建 Trae Work CN 规则目录: " $traeRuleDir -ForegroundColor Yellow
+        } catch {
+            Write-Host "创建 Trae Work CN 规则目录失败: $traeRuleDir" -ForegroundColor Red
+            Write-Host "原因: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "按任意键退出..." -ForegroundColor Gray
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            exit 1
+        }
+    }
 
     # 清理目录中所有 rule-*.md 文件（软链接直接删除，普通文件送入回收站）
     Get-ChildItem -Path $traeRuleDir -Filter "rule-*.md" -File -Force | ForEach-Object {
@@ -155,7 +170,7 @@ if (Test-Path $traeRuleDir) {
         exit 1
     }
 } else {
-    Write-Host "[跳过] Trae-Work: 未检测到配置目录 " $traeRuleDir -ForegroundColor DarkGray
+    Write-Host "[跳过] Trae-Work: 未检测到配置目录 " $traeConfigDir -ForegroundColor DarkGray
     $skipped++
 }
 
